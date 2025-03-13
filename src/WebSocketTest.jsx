@@ -2,8 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Stomp } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-const WebSocketChat = ({ auctionId }) => {
-  const [connected, setConnected] = useState(false);
+const WebSocketChat = ({ auctionId }) => {  
   const [message, setMessage] = useState(''); //클라이언트가 보낼 채팅내역
   const [chatMessages, setChatMessages] = useState([]); //서버가 응답한 채팅내역
   //옥션 정보
@@ -17,7 +16,7 @@ const WebSocketChat = ({ auctionId }) => {
   const [highestBid, setHighestBid] = useState(auctionData.currentBid); // 최고 입찰가 상태
 
   const stompClient = useRef(null); // stompClient를 useRef로 선언하여 참조 유지
-
+  const connected = useRef(false); // WebSocket 연결 상태를 useRef로 관리 , useState로 관리하니까 리렌더링에 영향을 받아서 유지가 잘 안되는 것 같음음
   // 페이지가 렌더링되면 한 번만 실행
   useEffect(() => {
     const socket = new SockJS('http://localhost:8088/ws-connect');
@@ -25,7 +24,7 @@ const WebSocketChat = ({ auctionId }) => {
 
     // 서버와 연결
     stompClient.current.connect({}, () => {
-      setConnected(true);
+      connected.current = true;
       console.log('Connected to WebSocket server');
 
       // 채팅 구독
@@ -118,7 +117,7 @@ const WebSocketChat = ({ auctionId }) => {
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', border: '1px solid #ddd', borderRadius: '8px' }}>
       {/* 경매 정보 */}
       <div style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f8f8f8', borderRadius: '8px' }}>
-        <h2>Online Auction - Auction {auctionId}</h2>
+        <h2>Online Auction</h2>
         <div>
           <p><strong>Current Bid:</strong> ${auctionData.currentBid}</p>
           <p><strong>Highest Bidder:</strong> {auctionData.highestBidder}</p>
@@ -128,17 +127,22 @@ const WebSocketChat = ({ auctionId }) => {
       {/* 입찰 */}
       <h3>Place Your Bid</h3>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+        {/* -버튼 */}
         <button onClick={handleBidDecrease} style={{ padding: '8px 12px', backgroundColor: '#f1f1f1', border: '1px solid #ccc', borderRadius: '5px', marginRight: '10px' }}>-</button>
+        {/* 입찰 가격 설정 */}
         <input 
           type="number" 
           value={bidAmount} 
           onChange={(e) => setBidAmount(Number(e.target.value))} 
           style={{ padding: '10px', width: '120px', textAlign: 'center', borderRadius: '5px', border: '1px solid #ccc', marginRight: '10px' }}
         />
+        {/* +버튼 */}
         <button onClick={handleBidIncrease} style={{ padding: '8px 12px', backgroundColor: '#f1f1f1', border: '1px solid #ccc', borderRadius: '5px' }}>+</button>
+        {/* 입찰 버튼 */}
         <button onClick={handleBidSubmit} style={{ padding: '10px 15px', marginLeft: '20px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '5px' }}>Place Bid</button>
       </div>  
       <div>
+        {/* 현재 입찰가 */}
         <p><strong>Current Highest Bid:</strong> ${highestBid}</p>
       </div>
 
@@ -147,6 +151,7 @@ const WebSocketChat = ({ auctionId }) => {
         <h3>Live Chat</h3>
         <div style={{ height: '300px', overflowY: 'scroll', marginBottom: '15px', padding: '10px', backgroundColor: '#f9f9f9', border: '1px solid #ddd', borderRadius: '8px' }}>
           <ul style={{ listStyleType: 'none', padding: '0' }}>
+            {/* 메세지 */}                
             {chatMessages.map((msg, index) => (
               <li key={index} style={{ marginBottom: '10px' }}>
                 <strong>User {index + 1}:</strong> {msg}
