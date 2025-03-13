@@ -3,20 +3,21 @@ import { Stomp } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
 const WebSocketChat = ( ) => {  
+  
   const auctionId = 1; //초기 옥션 1로 임시 설정 테스트용
+
+  // 채팅 상태변수
   const [message, setMessage] = useState(''); //클라이언트가 보낼 채팅내역
   const [chatMessages, setChatMessages] = useState([]); //서버가 응답한 채팅내역
-  //옥션 정보
-  const [auctionData, setAuctionData] = useState({
-    currentBid: 100,  // 예시로 기본값 설정
-    highestBidder: 'User123', // 예시로 기본값 설정    
-  });
-  //입찰
-  const [bidAmount, setBidAmount] = useState(auctionData.startingPrice); // 초기값은 현재 최고 입찰가
-  const [highestBid, setHighestBid] = useState(auctionData.currentBid); // 최고 입찰가 상태
+  // 경매 상태변수
+  const [auctionData, setAuctionData] = useState({}); //경매 정보
+  // 입찰 상태변수 
+  const [bidAmount, setBidAmount] = useState(''); // 입찰가 , 초기값은 경매시작가
+  const [highestBid, setHighestBid] = useState(''); // 최고 입찰가 상태
 
   const stompClient = useRef(null); // stompClient를 useRef로 선언하여 참조 유지
-  const connected = useRef(false); // WebSocket 연결 상태를 useRef로 관리 , useState로 관리하니까 리렌더링에 영향을 받아서 유지가 잘 안되는 것 같음음
+  const connected = useRef(false); // WebSocket 연결 상태를 useRef로 관리 , useState로 관리하니까 리렌더링에 영향을 받아서 유지가 잘 안되는 것 같음
+
   // 페이지가 렌더링되면 한 번만 실행
   useEffect(() => {   
 
@@ -28,18 +29,31 @@ const WebSocketChat = ( ) => {
         if (!response.ok) {
           throw new Error('경매 데이터를 불러오는 데 실패했습니다.');
         }
-
-        const auctionData = await response.json();
-        console.log(auctionData);  
-        console.log(auctionData.auctionInfo); //경매 조회 데이터        
+        
+        const getAuctionData = await response.json();
+        console.log(getAuctionData);  
+        console.log(getAuctionData.auctionInfo);  
+        const foundAuctionData = getAuctionData.auctionInfo; // auctionInfo안에 데이터 담겨있음
               
-        setAuctionData(auctionData.auctionInfo);
-        setBidAmount(auctionData.auctionInfo.startingPrice);   
-    };
-    fetchAuctionData();
+        setAuctionData(foundAuctionData);  //경매 정보
 
+        // 입찰자가 없을 시 최고가는 경매 시작가로 설정됨 + 새로고침시 사용자의 입찰금액도 현재 최고 입찰가로 설정됨
+        if(foundAuctionData.currentPrice === null){
+          //경매 초기세팅
+          setHighestBid(foundAuctionData.startingPrice); 
+          setBidAmount(foundAuctionData.startingPrice);   
+          console.log("입찰자가 없어서 최고가는 경매 시작가로 설정됩니다.");               
+        }else{
+          //진행 중인 경매 세팅
+          setHighestBid(foundAuctionData.currentPrice);  
+          setBidAmount(foundAuctionData.currentPrice);  
+          console.log(`현재 최고 입찰가는 ${foundAuctionData.currentPrice}입니다.`);     
+        }             
+        
+    };
+    fetchAuctionData(); //경매 정보 초기 세팅 후 웹소켓 서버 연결결
    
-    //서버 엔드포인트
+    // 서버 엔드포인트
     const socket = new SockJS('http://localhost:8088/ws-connect');
     stompClient.current = Stomp.over(socket);
 
@@ -49,20 +63,21 @@ const WebSocketChat = ( ) => {
       console.log('Connected to WebSocket server');
 
       // 채팅 구독
-      stompClient.current.subscribe('/topic/chat', (response) => {
-        // console.log(response);        
+      stompClient.current.subscribe('/topic/chat', (response) => {               
         const getChatData = JSON.parse(response.body);
         console.log(getChatData);
         
-        setChatMessages((prevMessages) => [...prevMessages, response.body]); //STOMP응답에서 문자열 본문이 있을 경우 response.body 사용 
+        // STOMP응답에서 문자열 본문이 있을 경우 response.body 사용 
+        setChatMessages((prevMessages) => [...prevMessages, response.body]); 
       });
 
       // 경매 구독
       stompClient.current.subscribe('/topic/bid', (response) => {
         const HighestBidData = JSON.parse(response.body);
-        console.log(HighestBidData);         
-        // setAuctionData(HighestBidData);
+        console.log(HighestBidData);   // 최고 입찰가 데이터      
+        setHighestBid(HighestBidData.bidAmount); // 서버로부터 실시간으로 최고 입찰가 업데이트
       });
+
     });
 
     // 컴포넌트 언마운트 시 연결 해제
@@ -72,7 +87,7 @@ const WebSocketChat = ( ) => {
         console.log('Disconnected from WebSocket server');
       }
     };
-  }, []); // 빈 배열로 의존성 추가하여 한 번만 연결 설정
+  }, []); // 빈 배열로 의존성 추가하여 한 번만 연결  ? 설정 경매방이 달라질때마다 다시 구독  ?
 
   // // 경매 정보 구독
   // useEffect(() => {
@@ -88,38 +103,42 @@ const WebSocketChat = ( ) => {
   // 메시지 전송 함수
   const sendMessage = () => {
     if (connected && message.trim() !== '') {
+
+      //현재 테스트용 임의 데이터
       const payload = {
         userId: "5", // 실제 값으로 대체할 수 있습니다.
         auctionId: 1, // props에서 받은 auctionId 사용
         message: message,
       };
 
+      //연결되어있다면 웹소켓을 요청 주소를 통해 JSON데이터 전송  
       if (stompClient.current) {
         stompClient.current.send(`/auction/${payload.auctionId}/chat`, {}, JSON.stringify(payload));
       }
-
       setMessage(''); // 메시지 전송 후 입력창 비우기
     }
   };
 
   // 입찰가 증가 함수
   const handleBidIncrease = () => {
-    setBidAmount((prevBid) => prevBid + 100); // 예: 100단위로 증가
+    setBidAmount((prevBid) => prevBid + 10000); // 예: 10000단위로 증가
   };
 
   // 입찰가 감소 함수
   const handleBidDecrease = () => {
-    if (bidAmount > auctionData.currentBid + 100) {
-      setBidAmount((prevBid) => prevBid - 100);
+    if (bidAmount > auctionData.currentPrice + 10000) {
+      setBidAmount((prevBid) => prevBid - 10000);
     }
   };
 
   // 응찰 버튼 클릭 시 입찰 처리
   const handleBidSubmit = () => {
-    if (bidAmount > auctionData.currentBid) {
+
+    //입찰가가 최고가 보다 클 때 서버로 JSON 데이터 전송
+    if (bidAmount > highestBid) {
       const payload = {
         userId: "100", // 실제 사용자 ID로 대체
-        auctionId: 1, // 실제 경매방 번호로 대체
+        auctionId: auctionId, // 실제 경매방 번호로 대체
         bidAmount: bidAmount,
       };
 
@@ -140,8 +159,8 @@ const WebSocketChat = ( ) => {
       <div style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f8f8f8', borderRadius: '8px' }}>
         <h2>Online Auction : {auctionData.title}</h2>
         <div>
-          <p><strong>Current Bid:</strong> ${auctionData.currentBid}</p>
-          <p><strong>Highest Bidder:</strong> {auctionData.highestBidder}</p>
+          <p><strong>Current Bid:</strong> {highestBid}원</p>
+          <p><strong>Highest Bidder:</strong> 최고 입찰자</p>
         </div>
       </div>   
 
@@ -164,7 +183,7 @@ const WebSocketChat = ( ) => {
       </div>  
       <div>
         {/* 현재 입찰가 */}
-        <p><strong>Current Highest Bid:</strong> ${highestBid}</p>
+        <p><strong>Current Highest Bid:{highestBid}</strong></p>
       </div>
 
       {/* 채팅 영역 */}
