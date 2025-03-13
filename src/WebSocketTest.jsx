@@ -18,7 +18,9 @@ const WebSocketChat = ({ auctionId }) => {
   const stompClient = useRef(null); // stompClient를 useRef로 선언하여 참조 유지
   const connected = useRef(false); // WebSocket 연결 상태를 useRef로 관리 , useState로 관리하니까 리렌더링에 영향을 받아서 유지가 잘 안되는 것 같음음
   // 페이지가 렌더링되면 한 번만 실행
-  useEffect(() => {
+  useEffect(() => {   
+   
+    //서버 엔드포인트
     const socket = new SockJS('http://localhost:8088/ws-connect');
     stompClient.current = Stomp.over(socket);
 
