@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Stomp } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
-const WebSocketChat = ({ auctionId }) => {  
+const WebSocketChat = ( ) => {  
+  const auctionId = 1; //초기 옥션 1로 임시 설정 테스트용
   const [message, setMessage] = useState(''); //클라이언트가 보낼 채팅내역
   const [chatMessages, setChatMessages] = useState([]); //서버가 응답한 채팅내역
   //옥션 정보
@@ -10,15 +11,33 @@ const WebSocketChat = ({ auctionId }) => {
     currentBid: 100,  // 예시로 기본값 설정
     highestBidder: 'User123', // 예시로 기본값 설정    
   });
-
   //입찰
-  const [bidAmount, setBidAmount] = useState(auctionData.currentBid); // 초기값은 현재 최고 입찰가
+  const [bidAmount, setBidAmount] = useState(auctionData.startingPrice); // 초기값은 현재 최고 입찰가
   const [highestBid, setHighestBid] = useState(auctionData.currentBid); // 최고 입찰가 상태
 
   const stompClient = useRef(null); // stompClient를 useRef로 선언하여 참조 유지
   const connected = useRef(false); // WebSocket 연결 상태를 useRef로 관리 , useState로 관리하니까 리렌더링에 영향을 받아서 유지가 잘 안되는 것 같음음
   // 페이지가 렌더링되면 한 번만 실행
   useEffect(() => {   
+
+    //경매 정보 요청
+    const fetchAuctionData = async () => {      
+        const response = await fetch(`http://localhost:8088/api/auction/${auctionId}`);
+        
+        // 응답 상태가 200이 아닐 경우 예외 처리
+        if (!response.ok) {
+          throw new Error('경매 데이터를 불러오는 데 실패했습니다.');
+        }
+
+        const auctionData = await response.json();
+        console.log(auctionData);  
+        console.log(auctionData.auctionInfo); //경매 조회 데이터        
+              
+        setAuctionData(auctionData.auctionInfo);
+        setBidAmount(auctionData.auctionInfo.startingPrice);   
+    };
+    fetchAuctionData();
+
    
     //서버 엔드포인트
     const socket = new SockJS('http://localhost:8088/ws-connect');
@@ -119,7 +138,7 @@ const WebSocketChat = ({ auctionId }) => {
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', border: '1px solid #ddd', borderRadius: '8px' }}>
       {/* 경매 정보 */}
       <div style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f8f8f8', borderRadius: '8px' }}>
-        <h2>Online Auction</h2>
+        <h2>Online Auction : {auctionData.title}</h2>
         <div>
           <p><strong>Current Bid:</strong> ${auctionData.currentBid}</p>
           <p><strong>Highest Bidder:</strong> {auctionData.highestBidder}</p>
