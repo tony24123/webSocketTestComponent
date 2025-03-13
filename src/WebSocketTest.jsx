@@ -4,20 +4,22 @@ import SockJS from 'sockjs-client';
 
 const WebSocketChat = ({ auctionId }) => {
   const [connected, setConnected] = useState(false);
-  const [message, setMessage] = useState('');
-  const [chatMessages, setChatMessages] = useState([]);
-  const stompClient = useRef(null); // stompClient를 useRef로 선언하여 참조 유지
-
-
+  const [message, setMessage] = useState(''); //클라이언트가 보낼 채팅내역
+  const [chatMessages, setChatMessages] = useState([]); //서버가 응답한 채팅내역
+  //옥션 정보
   const [auctionData, setAuctionData] = useState({
     currentBid: 100,  // 예시로 기본값 설정
     highestBidder: 'User123', // 예시로 기본값 설정    
   });
 
+  //입찰
+  const [bidAmount, setBidAmount] = useState(auctionData.currentBid); // 초기값은 현재 최고 입찰가
+  const [highestBid, setHighestBid] = useState(auctionData.currentBid); // 최고 입찰가 상태
 
+  const stompClient = useRef(null); // stompClient를 useRef로 선언하여 참조 유지
 
+  // 페이지가 렌더링되면 한 번만 실행
   useEffect(() => {
-    // WebSocket 연결을 위한 SockJS 클라이언트 설정
     const socket = new SockJS('http://localhost:8088/ws-connect');
     stompClient.current = Stomp.over(socket);
 
@@ -26,11 +28,20 @@ const WebSocketChat = ({ auctionId }) => {
       setConnected(true);
       console.log('Connected to WebSocket server');
 
-      // /topic/chat 경로를 구독하여 메시지를 받음
+      // 채팅 구독
       stompClient.current.subscribe('/topic/chat', (response) => {
-        console.log(response);        
-        // 서버로부터 받은 메시지 처리
-        setChatMessages((prevMessages) => [...prevMessages, response.body]);
+        // console.log(response);        
+        const getChatData = JSON.parse(response.body);
+        console.log(getChatData);
+        
+        setChatMessages((prevMessages) => [...prevMessages, response.body]); //STOMP응답에서 문자열 본문이 있을 경우 response.body 사용 
+      });
+
+      // 경매 구독
+      stompClient.current.subscribe('/topic/bid', (response) => {
+        const HighestBidData = JSON.parse(response.body);
+        console.log(HighestBidData);         
+        // setAuctionData(HighestBidData);
       });
     });
 
@@ -41,24 +52,65 @@ const WebSocketChat = ({ auctionId }) => {
         console.log('Disconnected from WebSocket server');
       }
     };
-  }, []); // 빈 배열로 의존성 추가
+  }, []); // 빈 배열로 의존성 추가하여 한 번만 연결 설정
+
+  // // 경매 정보 구독
+  // useEffect(() => {
+  //   if (stompClient.current && auctionId) {
+  //     stompClient.current.subscribe(`/topic/bid`, (response) => {
+  //       const auctionUpdate = JSON.parse(response.body);
+  //       setAuctionData(auctionUpdate);
+  //       setHighestBid(auctionUpdate.currentBid); // 최고 입찰가 실시간 업데이트
+  //     });
+  //   }
+  // }, [auctionId]); // auctionId가 변경될 때마다 다시 구독
 
   // 메시지 전송 함수
   const sendMessage = () => {
     if (connected && message.trim() !== '') {
-      // payload 객체 생성
       const payload = {
         userId: "5", // 실제 값으로 대체할 수 있습니다.
         auctionId: 1, // props에서 받은 auctionId 사용
-        message: message, // 여기서 message는 사용자가 입력한 내용
+        message: message,
       };
 
-      // JSON으로 변환하여 전송
       if (stompClient.current) {
         stompClient.current.send(`/auction/${payload.auctionId}/chat`, {}, JSON.stringify(payload));
       }
 
       setMessage(''); // 메시지 전송 후 입력창 비우기
+    }
+  };
+
+  // 입찰가 증가 함수
+  const handleBidIncrease = () => {
+    setBidAmount((prevBid) => prevBid + 100); // 예: 100단위로 증가
+  };
+
+  // 입찰가 감소 함수
+  const handleBidDecrease = () => {
+    if (bidAmount > auctionData.currentBid + 100) {
+      setBidAmount((prevBid) => prevBid - 100);
+    }
+  };
+
+  // 응찰 버튼 클릭 시 입찰 처리
+  const handleBidSubmit = () => {
+    if (bidAmount > auctionData.currentBid) {
+      const payload = {
+        userId: "100", // 실제 사용자 ID로 대체
+        auctionId: 1, // 실제 경매방 번호로 대체
+        bidAmount: bidAmount,
+      };
+
+      //응찰 데이터 전송
+      if (stompClient.current) {
+        stompClient.current.send(`/auction/${payload.auctionId}/bid`, {}, JSON.stringify(payload));
+        setHighestBid(bidAmount); // 최고 입찰가 업데이트
+        alert('최고가 입찰 성공!');
+      }
+    } else {
+      alert('최고가보다 낮은 금액은 입찰이 불가능합니다.');
     }
   };
 
@@ -69,8 +121,25 @@ const WebSocketChat = ({ auctionId }) => {
         <h2>Online Auction - Auction {auctionId}</h2>
         <div>
           <p><strong>Current Bid:</strong> ${auctionData.currentBid}</p>
-          <p><strong>Highest Bidder:</strong> {auctionData.highestBidder}</p>          
+          <p><strong>Highest Bidder:</strong> {auctionData.highestBidder}</p>
         </div>
+      </div>   
+
+      {/* 입찰 */}
+      <h3>Place Your Bid</h3>
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px' }}>
+        <button onClick={handleBidDecrease} style={{ padding: '8px 12px', backgroundColor: '#f1f1f1', border: '1px solid #ccc', borderRadius: '5px', marginRight: '10px' }}>-</button>
+        <input 
+          type="number" 
+          value={bidAmount} 
+          onChange={(e) => setBidAmount(Number(e.target.value))} 
+          style={{ padding: '10px', width: '120px', textAlign: 'center', borderRadius: '5px', border: '1px solid #ccc', marginRight: '10px' }}
+        />
+        <button onClick={handleBidIncrease} style={{ padding: '8px 12px', backgroundColor: '#f1f1f1', border: '1px solid #ccc', borderRadius: '5px' }}>+</button>
+        <button onClick={handleBidSubmit} style={{ padding: '10px 15px', marginLeft: '20px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '5px' }}>Place Bid</button>
+      </div>  
+      <div>
+        <p><strong>Current Highest Bid:</strong> ${highestBid}</p>
       </div>
 
       {/* 채팅 영역 */}
@@ -86,7 +155,6 @@ const WebSocketChat = ({ auctionId }) => {
           </ul>
         </div>
 
-        {/* 채팅 입력창 */}
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <input
             type="text"
