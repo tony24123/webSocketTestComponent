@@ -18,7 +18,7 @@ const WebSocketChat = ( ) => {
   const stompClient = useRef(null); // stompClient를 useRef로 선언하여 참조 유지
   const connected = useRef(false); // WebSocket 연결 상태를 useRef로 관리 , useState로 관리하니까 리렌더링에 영향을 받아서 유지가 잘 안되는 것 같음
 
-  // 페이지가 렌더링되면 한 번만 실행
+  // 페이지가 렌더링되면 한 번만 실행  
   useEffect(() => {   
 
     //경매 정보 요청 - 방에 입장했을 때 초기 설정
@@ -163,6 +163,7 @@ const WebSocketChat = ( ) => {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', border: '1px solid #ddd', borderRadius: '8px' }}>
+
       {/* 경매 정보 */}
       <div style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f8f8f8', borderRadius: '8px' }}>
         <h2>Online Auction : {auctionData.title}</h2>
@@ -197,7 +198,7 @@ const WebSocketChat = ( ) => {
       {/* 채팅 영역 */}
       <div>
         <h3>Live Chat</h3>
-        <div style={{ height: '300px', overflowY: 'scroll', marginBottom: '15px', padding: '10px', backgroundColor: '#f9f9f9', border: '1px solid #ddd', borderRadius: '8px' }}>
+        <div style={{ height: '300px', overflowY: 'scroll', marginBottom: '15px', padding: '10px', backgroundColor: '#f9f9f9', border: '1px solid #ddd', borderRadius: '8px', display: 'flex', flexDirection: 'column-reverse' }}> 
           <ul style={{ listStyleType: 'none', padding: '0' }}>
             {/* 메세지 배열 렌더링 */}                
             {chatMessages.map((msg, index) => (
@@ -220,6 +221,7 @@ const WebSocketChat = ( ) => {
           <button onClick={sendMessage} style={{ padding: '10px 15px', marginLeft: '10px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '5px' }}>Send</button>
         </div>
       </div>
+
     </div>
   );
 };
