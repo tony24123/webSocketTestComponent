@@ -5,7 +5,7 @@ import SockJS from 'sockjs-client';
 const WebSocketChat = ( ) => {  
   
   // const auctionId = 1; //초기 옥션 1로 임시 설정 테스트용
-  const [auctionId, setAuctionId] = useState(1); //경매아이디
+  const [auctionId, setAuctionId] = useState(1); //경매아이디 - 변화시 해당 경매 데이터 렌더링
 
   // 채팅 상태변수
   const [message, setMessage] = useState(''); //클라이언트가 보낼 채팅내역
@@ -19,7 +19,7 @@ const WebSocketChat = ( ) => {
   const stompClient = useRef(null); // stompClient를 useRef로 선언하여 참조 유지
   const connected = useRef(false); // WebSocket 연결 상태를 useRef로 관리 , useState로 관리하니까 리렌더링에 영향을 받아서 유지가 잘 안되는 것 같음
 
-  const currentAuctionId = useRef(auctionId); //현재 연결된 auctionId 추적적
+  const currentAuctionId = useRef(auctionId); //현재 연결된 auctionId 추적
 
   // 페이지가 렌더링되면 한 번만 실행  
   useEffect(() => {   
@@ -83,7 +83,7 @@ const WebSocketChat = ( ) => {
       connected.current = true;
       console.log('Connected to WebSocket server');
 
-      // 채팅 구독
+      // 채팅 구독 - 서버로부터 응답 받기
       stompClient.current.subscribe(`/topic/chat/${auctionId}`, (response) => {     
         // STOMP응답에서 문자열 본문이 있을 경우 response.body 사용           
         const getChatData = JSON.parse(response.body);
@@ -92,7 +92,7 @@ const WebSocketChat = ( ) => {
         setChatMessages((prevMessages) => [...prevMessages, getChatData]); 
       });
 
-      // 경매 구독
+      // 경매 구독 -서버로부터 응답 받기
       stompClient.current.subscribe(`/topic/bid/${auctionId}`, (response) => {
         const HighestBidData = JSON.parse(response.body);
         console.log(HighestBidData);   // 최고 입찰가 데이터      
@@ -108,8 +108,8 @@ const WebSocketChat = ( ) => {
         console.log('Disconnected from WebSocket server');
       }
     };
-  }, [auctionId]); // 빈 배열로 의존성 추가하여 한 번만 연결  ? 설정 경매방이 달라질때마다 다시 구독  ?   
-// }, [auctionId]); // auctionId가 변경될 때마다 다시 구독
+  }, [auctionId]); // auctionId가 변경될 때마다 다시 구독    
+// }, []); // 빈 배열로 의존성 추가하여 한 번만 연결
 
   // 메시지 전송 함수
   const sendMessage = () => {
@@ -118,7 +118,7 @@ const WebSocketChat = ( ) => {
       //현재 테스트용 임의 데이터
       const payload = {
         userId: "5", // 실제 값으로 대체할 수 있습니다.
-        auctionId: auctionId, // props에서 받은 auctionId 사용
+        auctionId: auctionId, 
         message: message,
       };
 
@@ -149,7 +149,7 @@ const WebSocketChat = ( ) => {
     if (bidAmount > highestBid) {
       const payload = {
         userId: "100", // 실제 사용자 ID로 대체
-        auctionId: auctionId, // 실제 경매방 번호로 대체
+        auctionId: auctionId, 
         bidAmount: bidAmount,
       };
 
