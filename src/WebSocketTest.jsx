@@ -48,7 +48,7 @@ const WebSocketChat = ( ) => {
           setHighestBid(foundAuctionData.currentPrice);  
           setBidAmount(foundAuctionData.currentPrice);  
           console.log(`현재 최고 입찰가는 ${foundAuctionData.currentPrice}입니다.`);     
-        }             
+        }           
         
     };
     fetchAuctionData(); //경매 정보 초기 세팅 후 웹소켓 서버 연결결
@@ -63,12 +63,12 @@ const WebSocketChat = ( ) => {
       console.log('Connected to WebSocket server');
 
       // 채팅 구독
-      stompClient.current.subscribe('/topic/chat', (response) => {               
+      stompClient.current.subscribe('/topic/chat', (response) => {     
+        // STOMP응답에서 문자열 본문이 있을 경우 response.body 사용           
         const getChatData = JSON.parse(response.body);
-        console.log(getChatData);
-        
-        // STOMP응답에서 문자열 본문이 있을 경우 response.body 사용 
-        setChatMessages((prevMessages) => [...prevMessages, response.body]); 
+        console.log(getChatData);           
+        //채팅 배열에 담기 - 이전 문자들도 배열에 담기
+        setChatMessages((prevMessages) => [...prevMessages, getChatData]); 
       });
 
       // 경매 구독
@@ -191,10 +191,11 @@ const WebSocketChat = ( ) => {
         <h3>Live Chat</h3>
         <div style={{ height: '300px', overflowY: 'scroll', marginBottom: '15px', padding: '10px', backgroundColor: '#f9f9f9', border: '1px solid #ddd', borderRadius: '8px' }}>
           <ul style={{ listStyleType: 'none', padding: '0' }}>
-            {/* 메세지 */}                
+            {/* 메세지 배열 렌더링 */}                
             {chatMessages.map((msg, index) => (
               <li key={index} style={{ marginBottom: '10px' }}>
-                <strong>User {index + 1}:</strong> {msg}
+                {/* id대신 유저의 닉네임으로 변경 필요 */}
+                <strong>{index + 1}. UserID - {msg.userId} : </strong>{msg.message} 
               </li>
             ))}
           </ul>
