@@ -6,14 +6,13 @@ import SockJS from 'sockjs-client';
 //방만들기 버튼 클릭시 경매방을 설정할 값 받아와야함
 const WebSocketChat = ( ) => {  
   
-  // const auctionId = 1; //초기 옥션 1로 임시 설정 테스트용
-  const [auctionId, setAuctionId] = useState(1); //경매아이디 - 변화시 해당 경매 데이터 렌더링 
+  const [productId, setProductId] = useState(4); //상품아이디 - 방만들기 클릭시 해당 게시물의 상품 id로 경매 생성 + 상품 id로 경매 조회 
 
   // 채팅 상태변수
   const [message, setMessage] = useState(''); //클라이언트가 보낼 채팅내역
   const [chatMessages, setChatMessages] = useState([]); //서버가 응답한 채팅내역
   // 경매 상태변수
-  const [auctionData, setAuctionData] = useState({}); //경매 정보
+  const [auctionData, setAuctionData] = useState({}); // 현재 경매 정보
   // 입찰 상태변수 
   const [bidAmount, setBidAmount] = useState(''); // 입찰가 , 초기값은 경매시작가
   const [highestBid, setHighestBid] = useState(''); // 최고 입찰가 상태
@@ -21,15 +20,15 @@ const WebSocketChat = ( ) => {
   const stompClient = useRef(null); // stompClient를 useRef로 선언하여 참조 유지
   const connected = useRef(false); // WebSocket 연결 상태를 useRef로 관리 , useState로 관리하니까 리렌더링에 영향을 받아서 유지가 잘 안되는 것 같음
 
-  const currentAuctionId = useRef(auctionId); //현재 연결된 auctionId 추적
+  const currentAuctionId = useRef(auctionData.auctionId); //현재 연결된 auctionId 추적
 
-  // 페이지가 렌더링되면 한 번만 실행  
+  // 상품id로 해당 경매 조회 후 경매 데이터로 초기 세팅
   useEffect(() => {       
 
     //경매 정보 요청 - 방에 입장했을 때 초기 설정
     const fetchAuctionData = async () => {      
-        //경매 정보 요청
-        const response = await fetch(`http://localhost:8088/api/auction/${auctionId}`);
+        //상품 id로 경매 정보 요청
+        const response = await fetch(`http://localhost:8088/api/auction/${productId}`);
         
         // 응답 상태가 200이 아닐 경우 예외 처리
         if (!response.ok) {
@@ -59,7 +58,7 @@ const WebSocketChat = ( ) => {
         
         //채팅 초기 세팅
         //경매방 채팅내역 조회 요청
-        const chatResponse = await fetch(`http://localhost:8088/api/chat/${auctionId}`); 
+        const chatResponse = await fetch(`http://localhost:8088/api/chat/${foundAuctionData.id}`); 
 
         // 응답 상태가 200이 아닐 경우 예외 처리
         if (!chatResponse.ok) {
@@ -72,47 +71,35 @@ const WebSocketChat = ( ) => {
         console.log(getChatData.chat);
         const foundChatData = getChatData.chat;
         setChatMessages(foundChatData); // 채팅 데이터 초기 설정
-        
-    };
-    fetchAuctionData(); //경매 정보 초기 세팅 후 웹소켓 서버 연결
+
+        console.log(foundAuctionData);
+      };
+        fetchAuctionData(); //경매 정보 초기 세팅 후 웹소켓 서버 연결
+      }, [productId]); // productId가 변경될 때마다 다시 실행
+    
    
-    // 서버 엔드포인트
-    const socket = new SockJS('http://localhost:8088/ws-connect');
-    stompClient.current = Stomp.over(socket);
+    // auctionData가 업데이트된 후 WebSocket 연결 설정
+  useEffect(() => {
+    if (auctionData.id && !connected.current) {
+      const socket = new SockJS('http://localhost:8088/ws-connect');
+      stompClient.current = Stomp.over(socket);
 
-    // 서버와 연결
-    stompClient.current.connect({}, () => {
-      connected.current = true;
-      console.log('Connected to WebSocket server');
+      stompClient.current.connect({}, () => {
+        connected.current = true;
+        console.log('Connected to WebSocket server');
 
-      // // 경매방 변경 시 이전 구독을 해제하고 새로운 경매방에 대한 구독 설정
-      // if (currentAuctionId.current !== auctionId) {
-      //   // 현재 경매방이 다를 경우 이전 구독 취소
-      //   if (stompClient.current) {
-      //     stompClient.current.unsubscribe(`/topic/chat/${currentAuctionId.current}`);
-      //     stompClient.current.unsubscribe(`/topic/bid/${currentAuctionId.current}`);
-      //   }
-      //   // 새로운 경매방에 대해 구독 설정
-      //   currentAuctionId.current = auctionId;
-      // }
+        // 채팅 구독 - 서버로부터 응답 받기
+        stompClient.current.subscribe(`/topic/chat/${auctionData.id}`, (response) => {
+          const getChatData = JSON.parse(response.body);
+          setChatMessages((prevMessages) => [...prevMessages, getChatData]);
+        });
 
-      // 채팅 구독 - 서버로부터 응답 받기
-      stompClient.current.subscribe(`/topic/chat/${auctionId}`, (response) => {     
-        // STOMP응답에서 문자열 본문이 있을 경우 response.body 사용           
-        const getChatData = JSON.parse(response.body);
-        console.log(getChatData);           
-        //채팅 배열에 담기 - 이전 문자들도 배열에 담기
-        setChatMessages((prevMessages) => [...prevMessages, getChatData]); 
+        // 경매 구독 - 서버로부터 응답 받기
+        stompClient.current.subscribe(`/topic/bid/${auctionData.id}`, (response) => {
+          const HighestBidData = JSON.parse(response.body);
+          setHighestBid(HighestBidData.bidAmount);
+        });
       });
-
-      // 경매 구독 -서버로부터 응답 받기
-      stompClient.current.subscribe(`/topic/bid/${auctionId}`, (response) => {
-        const HighestBidData = JSON.parse(response.body);
-        console.log(HighestBidData);   // 최고 입찰가 데이터      
-        setHighestBid(HighestBidData.bidAmount); // 서버로부터 실시간으로 최고 입찰가 업데이트
-      });
-
-    });
 
     // 컴포넌트 언마운트 시 연결 해제
     return () => {
@@ -121,21 +108,22 @@ const WebSocketChat = ( ) => {
         console.log('Disconnected from WebSocket server');
       }
     };
-  }, [auctionId]); // auctionId가 변경될 때마다 다시 구독    
-// }, []); // 빈 배열로 의존성 추가하여 한 번만 연결
+   }
+  }, [auctionData]); // auctionId가 변경될 때마다 다시 구독
 
-  // 메시지 전송 함수
+  // 서버로 메시지 전송 함수
   const sendMessage = () => {
     if (connected && message.trim() !== '') {
 
-      //현재 테스트용 임의 데이터
+      //현재 테스트용 임의 데이터 - 사용자 id 대체 필요
       const payload = {
         userId: "5", // 실제 값으로 대체할 수 있습니다.
-        auctionId: auctionId, 
+        auctionId: auctionData.id, 
         message: message,
       };
 
       // 연결되어있다면 웹소켓을 요청 주소를 통해 JSON데이터 전송  
+      // 주소는 백엔드와 일치시켜야함
       if (stompClient.current) {
         stompClient.current.send(`/auction/${payload.auctionId}/chat`, {}, JSON.stringify(payload));
       }
@@ -158,11 +146,11 @@ const WebSocketChat = ( ) => {
   // 응찰 버튼 클릭 시 입찰 처리
   const handleBidSubmit = () => {
 
-    //입찰가가 최고가 보다 클 때 서버로 JSON 데이터 전송
+    // 입찰가가 최고가보다 클 때 서버로 JSON 데이터 전송
     if (bidAmount > highestBid) {
       const payload = {
         userId: "100", // 실제 사용자 ID로 대체
-        auctionId: auctionId, 
+        auctionId: auctionData.id, 
         bidAmount: bidAmount,
       };
 
