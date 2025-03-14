@@ -2,10 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Stomp } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
+
+//방만들기 버튼 클릭시 경매방을 설정할 값 받아와야함
 const WebSocketChat = ( ) => {  
   
   // const auctionId = 1; //초기 옥션 1로 임시 설정 테스트용
-  const [auctionId, setAuctionId] = useState(1); //경매아이디 - 변화시 해당 경매 데이터 렌더링
+  const [auctionId, setAuctionId] = useState(1); //경매아이디 - 변화시 해당 경매 데이터 렌더링 
 
   // 채팅 상태변수
   const [message, setMessage] = useState(''); //클라이언트가 보낼 채팅내역
@@ -22,7 +24,7 @@ const WebSocketChat = ( ) => {
   const currentAuctionId = useRef(auctionId); //현재 연결된 auctionId 추적
 
   // 페이지가 렌더링되면 한 번만 실행  
-  useEffect(() => {   
+  useEffect(() => {       
 
     //경매 정보 요청 - 방에 입장했을 때 초기 설정
     const fetchAuctionData = async () => {      
@@ -82,6 +84,17 @@ const WebSocketChat = ( ) => {
     stompClient.current.connect({}, () => {
       connected.current = true;
       console.log('Connected to WebSocket server');
+
+      // // 경매방 변경 시 이전 구독을 해제하고 새로운 경매방에 대한 구독 설정
+      // if (currentAuctionId.current !== auctionId) {
+      //   // 현재 경매방이 다를 경우 이전 구독 취소
+      //   if (stompClient.current) {
+      //     stompClient.current.unsubscribe(`/topic/chat/${currentAuctionId.current}`);
+      //     stompClient.current.unsubscribe(`/topic/bid/${currentAuctionId.current}`);
+      //   }
+      //   // 새로운 경매방에 대해 구독 설정
+      //   currentAuctionId.current = auctionId;
+      // }
 
       // 채팅 구독 - 서버로부터 응답 받기
       stompClient.current.subscribe(`/topic/chat/${auctionId}`, (response) => {     
@@ -158,6 +171,7 @@ const WebSocketChat = ( ) => {
         stompClient.current.send(`/auction/${payload.auctionId}/bid`, {}, JSON.stringify(payload));
         setHighestBid(bidAmount); // 최고 입찰가 업데이트
         alert('최고가 입찰 성공!');
+        
       }
     } else {
       alert('최고가보다 낮은 금액은 입찰이 불가능합니다.');
