@@ -21,21 +21,23 @@ const WebSocketChat = ( ) => {
   // 페이지가 렌더링되면 한 번만 실행
   useEffect(() => {   
 
-    //경매 정보 요청
+    //경매 정보 요청 - 방에 입장했을 때 초기 설정
     const fetchAuctionData = async () => {      
+        //경매 정보 요청
         const response = await fetch(`http://localhost:8088/api/auction/${auctionId}`);
         
         // 응답 상태가 200이 아닐 경우 예외 처리
         if (!response.ok) {
           throw new Error('경매 데이터를 불러오는 데 실패했습니다.');
         }
-        
+
+        //응답받은 경매 정보 접근하기
         const getAuctionData = await response.json();
         console.log(getAuctionData);  
         console.log(getAuctionData.auctionInfo);  
         const foundAuctionData = getAuctionData.auctionInfo; // auctionInfo안에 데이터 담겨있음
               
-        setAuctionData(foundAuctionData);  //경매 정보
+        setAuctionData(foundAuctionData);  // 경매 정보
 
         // 입찰자가 없을 시 최고가는 경매 시작가로 설정됨 + 새로고침시 사용자의 입찰금액도 현재 최고 입찰가로 설정됨
         if(foundAuctionData.currentPrice === null){
@@ -48,10 +50,26 @@ const WebSocketChat = ( ) => {
           setHighestBid(foundAuctionData.currentPrice);  
           setBidAmount(foundAuctionData.currentPrice);  
           console.log(`현재 최고 입찰가는 ${foundAuctionData.currentPrice}입니다.`);     
-        }           
+        }   
+        
+        //채팅 초기 세팅
+        //경매방 채팅내역 조회 요청
+        const chatResponse = await fetch(`http://localhost:8088/api/chat/${auctionId}`); 
+
+        // 응답 상태가 200이 아닐 경우 예외 처리
+        if (!chatResponse.ok) {
+          throw new Error('채팅 데이터를 불러오는 데 실패했습니다.');
+        }
+        
+        //응답받은 채팅 내역 접근하기 
+        const getChatData = await chatResponse.json();
+        console.log(getChatData);
+        console.log(getChatData.chat);
+        const foundChatData = getChatData.chat;
+        setChatMessages(foundChatData); // 채팅 데이터 초기 설정
         
     };
-    fetchAuctionData(); //경매 정보 초기 세팅 후 웹소켓 서버 연결결
+    fetchAuctionData(); //경매 정보 초기 세팅 후 웹소켓 서버 연결
    
     // 서버 엔드포인트
     const socket = new SockJS('http://localhost:8088/ws-connect');
@@ -87,18 +105,8 @@ const WebSocketChat = ( ) => {
         console.log('Disconnected from WebSocket server');
       }
     };
-  }, []); // 빈 배열로 의존성 추가하여 한 번만 연결  ? 설정 경매방이 달라질때마다 다시 구독  ?
-
-  // // 경매 정보 구독
-  // useEffect(() => {
-  //   if (stompClient.current && auctionId) {
-  //     stompClient.current.subscribe(`/topic/bid`, (response) => {
-  //       const auctionUpdate = JSON.parse(response.body);
-  //       setAuctionData(auctionUpdate);
-  //       setHighestBid(auctionUpdate.currentBid); // 최고 입찰가 실시간 업데이트
-  //     });
-  //   }
-  // }, [auctionId]); // auctionId가 변경될 때마다 다시 구독
+  }, []); // 빈 배열로 의존성 추가하여 한 번만 연결  ? 설정 경매방이 달라질때마다 다시 구독  ?   
+// }, [auctionId]); // auctionId가 변경될 때마다 다시 구독
 
   // 메시지 전송 함수
   const sendMessage = () => {
@@ -111,7 +119,7 @@ const WebSocketChat = ( ) => {
         message: message,
       };
 
-      //연결되어있다면 웹소켓을 요청 주소를 통해 JSON데이터 전송  
+      // 연결되어있다면 웹소켓을 요청 주소를 통해 JSON데이터 전송  
       if (stompClient.current) {
         stompClient.current.send(`/auction/${payload.auctionId}/chat`, {}, JSON.stringify(payload));
       }
