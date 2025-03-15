@@ -4,9 +4,9 @@ import SockJS from 'sockjs-client';
 
 
 //방만들기 버튼 클릭시 경매방을 설정할 값 받아와야함
-const WebSocketChat = ( ) => {  
+const WebSocketChat = () => {  
   
-  const [productId, setProductId] = useState(4); //상품아이디 - 방만들기 클릭시 해당 게시물의 상품 id로 경매 생성 + 상품 id로 경매 조회 
+  const [productId, setProductId] = useState(10); //상품아이디 - 방만들기 클릭시 해당 게시물의 상품 id로 경매 생성 + 상품 id로 경매 조회 
 
   // 채팅 상태변수
   const [message, setMessage] = useState(''); //클라이언트가 보낼 채팅내역
@@ -17,8 +17,8 @@ const WebSocketChat = ( ) => {
   const [bidAmount, setBidAmount] = useState(''); // 입찰가 , 초기값은 경매시작가
   const [highestBid, setHighestBid] = useState(''); // 최고 입찰가 상태
 
-  const stompClient = useRef(null); // stompClient를 useRef로 선언하여 참조 유지
-  const connected = useRef(false); // WebSocket 연결 상태를 useRef로 관리 , useState로 관리하니까 리렌더링에 영향을 받아서 유지가 잘 안되는 것 같음
+  const stompClient = useRef({}); // stompClient를 useRef로 선언하여 참조 유지 // 각 경매방에 대한 stompClient 관리
+  const connected = useRef({}); // 각 경매방에 대한 연결 상태 관리 , useState로 관리하니까 리렌더링에 영향을 받아서 유지가 잘 안되는 것 같음
 
   const currentAuctionId = useRef(auctionData.auctionId); //현재 연결된 auctionId 추적
 
@@ -74,46 +74,57 @@ const WebSocketChat = ( ) => {
 
         console.log(foundAuctionData);
       };
-        fetchAuctionData(); //경매 정보 초기 세팅 후 웹소켓 서버 연결
-      }, [productId]); // productId가 변경될 때마다 다시 실행
+    fetchAuctionData(); //경매 정보 초기 세팅 후 웹소켓 서버 연결
+  }, [productId]); // productId가 변경될 때마다 다시 실행
     
    
     // auctionData가 업데이트된 후 WebSocket 연결 설정
   useEffect(() => {
-    if (auctionData.id && !connected.current) {
-      const socket = new SockJS('http://localhost:8088/ws-connect');
-      stompClient.current = Stomp.over(socket);
 
-      stompClient.current.connect({}, () => {
-        connected.current = true;
-        console.log('Connected to WebSocket server');
+  console.log(`${auctionData.id}번 방 연결 시도`);
+  
+  // auctionData.id가 존재하고, 해당 경매방에 대해 아직 연결되지 않은 경우
+  if (auctionData.id && !connected.current[auctionData.id]) {
+    // WebSocket 연결을 위한 SockJS와 Stomp 설정
+    const socket = new SockJS('http://localhost:8088/ws-connect');
+    stompClient.current[auctionData.id] = Stomp.over(socket);
 
-        // 채팅 구독 - 서버로부터 응답 받기
-        stompClient.current.subscribe(`/topic/chat/${auctionData.id}`, (response) => {
-          const getChatData = JSON.parse(response.body);
-          setChatMessages((prevMessages) => [...prevMessages, getChatData]);
-        });
+    // 각 경매방에 WebSocket 서버에 연결
+    stompClient.current[auctionData.id]?.connect({}, () => {
+      connected.current[auctionData.id] = true;
+      console.log('웹소켓 서버 연결 .');
 
-        // 경매 구독 - 서버로부터 응답 받기
-        stompClient.current.subscribe(`/topic/bid/${auctionData.id}`, (response) => {
-          const HighestBidData = JSON.parse(response.body);
-          setHighestBid(HighestBidData.bidAmount);
-        });
+      // 채팅 구독
+      stompClient.current[auctionData.id]?.subscribe(`/topic/chat/${auctionData.id}`, (response) => {
+        const getChatData = JSON.parse(response.body);
+        setChatMessages((prevMessages) => [...prevMessages, getChatData]);
       });
 
+      // 경매 구독
+      stompClient.current[auctionData.id]?.subscribe(`/topic/bid/${auctionData.id}`, (response) => {
+        const HighestBidData = JSON.parse(response.body);
+        setHighestBid(HighestBidData.bidAmount);
+      });
+    });
     // 컴포넌트 언마운트 시 연결 해제
     return () => {
-      if (stompClient.current) {
-        stompClient.current.disconnect();
-        console.log('Disconnected from WebSocket server');
+      if (stompClient.current[auctionData.id]) {
+        stompClient.current[auctionData.id]?.disconnect();
+        connected.current[auctionData.id] = false; // 연결 상태 초기화
+        console.log('서버와 연결 종료');
       }
     };
-   }
-  }, [auctionData]); // auctionId가 변경될 때마다 다시 구독
+  }
+
+  // auctionData.id가 없거나 연결된 상태일 때는 웹소켓 연결을 하지 않음
+  return undefined;
+}, [auctionData]); // auctionData가 변경될 때마다 다시 실행
+
+
 
   // 서버로 메시지 전송 함수
   const sendMessage = () => {
-    if (connected && message.trim() !== '') {
+    if (connected.current[auctionData.id] && message.trim() !== '') {
 
       //현재 테스트용 임의 데이터 - 사용자 id 대체 필요
       const payload = {
@@ -124,8 +135,8 @@ const WebSocketChat = ( ) => {
 
       // 연결되어있다면 웹소켓을 요청 주소를 통해 JSON데이터 전송  
       // 주소는 백엔드와 일치시켜야함
-      if (stompClient.current) {
-        stompClient.current.send(`/auction/${payload.auctionId}/chat`, {}, JSON.stringify(payload));
+      if (stompClient.current[auctionData.id]) {
+        stompClient.current[auctionData.id].send(`/auction/${payload.auctionId}/chat`, {}, JSON.stringify(payload));
       }
       setMessage(''); // 메시지 전송 후 입력창 비우기
     }
@@ -155,8 +166,8 @@ const WebSocketChat = ( ) => {
       };
 
       //응찰 데이터 전송
-      if (stompClient.current) {
-        stompClient.current.send(`/auction/${payload.auctionId}/bid`, {}, JSON.stringify(payload));
+      if (stompClient.current[auctionData.id]) {
+        stompClient.current[auctionData.id].send(`/auction/${payload.auctionId}/bid`, {}, JSON.stringify(payload));
         setHighestBid(bidAmount); // 최고 입찰가 업데이트
         alert('최고가 입찰 성공!');
         
