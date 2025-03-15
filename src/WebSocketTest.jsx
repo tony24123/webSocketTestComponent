@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Stomp } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import {useParams} from 'react-router-dom';
 
+//방만들기 버튼 클릭시 상품id url로 전송 -> useParams로 받아서 사용 
+const WebSocketChat = () => {   
 
-//방만들기 버튼 클릭시 경매방을 설정할 값 받아와야함
-const WebSocketChat = () => {  
-  
-  const [productId, setProductId] = useState(10); //상품아이디 - 방만들기 클릭시 해당 게시물의 상품 id로 경매 생성 + 상품 id로 경매 조회 
+  const { getProductIdToURL } = useParams(); // URL에서 productId 파라미터를 가져옴 -> 상품 id로 해당 경매 생성 + 상품 id로 경매 조회
+  // const [productId, setProductId] = useState(4); 
 
   // 채팅 상태변수
   const [message, setMessage] = useState(''); //클라이언트가 보낼 채팅내역
@@ -19,16 +20,18 @@ const WebSocketChat = () => {
 
   const stompClient = useRef({}); // stompClient를 useRef로 선언하여 참조 유지 // 각 경매방에 대한 stompClient 관리
   const connected = useRef({}); // 각 경매방에 대한 연결 상태 관리 , useState로 관리하니까 리렌더링에 영향을 받아서 유지가 잘 안되는 것 같음
-
-  const currentAuctionId = useRef(auctionData.auctionId); //현재 연결된 auctionId 추적
+ 
 
   // 상품id로 해당 경매 조회 후 경매 데이터로 초기 세팅
   useEffect(() => {       
 
+    console.log(`url에서 받아온 값${getProductIdToURL}`);    
+     //url에서 받아온 상품 아이디로 조회
+
     //경매 정보 요청 - 방에 입장했을 때 초기 설정
     const fetchAuctionData = async () => {      
         //상품 id로 경매 정보 요청
-        const response = await fetch(`http://localhost:8088/api/auction/${productId}`);
+        const response = await fetch(`http://localhost:8088/api/auction/${getProductIdToURL}`);
         
         // 응답 상태가 200이 아닐 경우 예외 처리
         if (!response.ok) {
@@ -75,16 +78,14 @@ const WebSocketChat = () => {
         console.log(foundAuctionData);
       };
     fetchAuctionData(); //경매 정보 초기 세팅 후 웹소켓 서버 연결
-  }, [productId]); // productId가 변경될 때마다 다시 실행
+  }, [getProductIdToURL]); // getProductIdToURL가 변경될 때마다 다시 실행
     
    
-    // auctionData가 업데이트된 후 WebSocket 연결 설정
+  // auctionData가 업데이트된 후 WebSocket 연결 설정
   useEffect(() => {
 
-  console.log(`${auctionData.id}번 방 연결 시도`);
-  
   // auctionData.id가 존재하고, 해당 경매방에 대해 아직 연결되지 않은 경우
-  if (auctionData.id && !connected.current[auctionData.id]) {
+  if (auctionData.id && !connected.current[auctionData.id]) {    
     // WebSocket 연결을 위한 SockJS와 Stomp 설정
     const socket = new SockJS('http://localhost:8088/ws-connect');
     stompClient.current[auctionData.id] = Stomp.over(socket);
@@ -92,7 +93,7 @@ const WebSocketChat = () => {
     // 각 경매방에 WebSocket 서버에 연결
     stompClient.current[auctionData.id]?.connect({}, () => {
       connected.current[auctionData.id] = true;
-      console.log('웹소켓 서버 연결 .');
+      console.log('웹소켓 서버 연결');
 
       // 채팅 구독
       stompClient.current[auctionData.id]?.subscribe(`/topic/chat/${auctionData.id}`, (response) => {
@@ -111,7 +112,7 @@ const WebSocketChat = () => {
       if (stompClient.current[auctionData.id]) {
         stompClient.current[auctionData.id]?.disconnect();
         connected.current[auctionData.id] = false; // 연결 상태 초기화
-        console.log('서버와 연결 종료');
+        console.log('서버 연결 종료');
       }
     };
   }
@@ -126,7 +127,7 @@ const WebSocketChat = () => {
   const sendMessage = () => {
     if (connected.current[auctionData.id] && message.trim() !== '') {
 
-      //현재 테스트용 임의 데이터 - 사용자 id 대체 필요
+      //현재 테스트용 임의 데이터
       const payload = {
         userId: "5", // 실제 값으로 대체할 수 있습니다.
         auctionId: auctionData.id, 
