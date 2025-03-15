@@ -88,7 +88,8 @@ const WebSocketChat = () => {
   if (auctionData.id && !connected.current[auctionData.id]) {    
     // WebSocket 연결을 위한 SockJS와 Stomp 설정
     const socket = new SockJS('http://localhost:8088/ws-connect');
-    stompClient.current[auctionData.id] = Stomp.over(socket);
+    // 각 경매방에 대해 독립적인 웹소켓 클라이언트를 생성
+    stompClient.current[auctionData.id] = Stomp.over(socket); 
 
     // 각 경매방에 WebSocket 서버에 연결
     stompClient.current[auctionData.id]?.connect({}, () => {
