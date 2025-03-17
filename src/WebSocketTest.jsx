@@ -49,8 +49,8 @@ const WebSocketChat = () => {
         // 입찰자가 없을 시 최고가는 경매 시작가로 설정됨 + 새로고침시 사용자의 입찰금액도 현재 최고 입찰가로 설정됨
         if(foundAuctionData.currentPrice === null){
           //경매 초기세팅
-          setHighestBid(foundAuctionData.startingPrice); 
-          setBidAmount(foundAuctionData.startingPrice);   
+          setHighestBid(foundAuctionData.product.startingPrice); 
+          setBidAmount(foundAuctionData.product.startingPrice);   
           console.log("입찰자가 없어서 최고가는 경매 시작가로 설정됩니다.");               
         }else{
           //진행 중인 경매 세팅
@@ -184,7 +184,7 @@ const WebSocketChat = () => {
 
       {/* 경매 정보 */}
       <div style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f8f8f8', borderRadius: '8px' }}>
-        <h2>Online Auction : {auctionData.title}</h2>
+        <h2>Online Auction : {auctionData.product.name} 판매방</h2>
         <div>
           <p><strong>Current Bid:</strong> {highestBid}원</p>
           <p><strong>Highest Bidder:</strong> 최고 입찰자</p>
