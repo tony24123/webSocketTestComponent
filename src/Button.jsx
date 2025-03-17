@@ -13,8 +13,8 @@ const Button = () => {
   return (
     <div>
       <h1>경매방 생성</h1>
-      <button onClick={() => navigateToAuction(4)}>상품 4번 보기</button>
-      <button onClick={() => navigateToAuction(10)}>상품 10번</button>
+      <button onClick={() => navigateToAuction(1)}>상품 1번 보기</button>
+      <button onClick={() => navigateToAuction(2)}>상품 2번</button>
     </div>
   )
 }
