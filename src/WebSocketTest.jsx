@@ -116,10 +116,7 @@ const WebSocketChat = () => {
         console.log('서버 연결 종료');
       }
     };
-  }
-
-  // auctionData.id가 없거나 연결된 상태일 때는 웹소켓 연결을 하지 않음
-  return undefined;
+  }  
 }, [auctionData]); // auctionData가 변경될 때마다 다시 실행
 
 
@@ -184,7 +181,12 @@ const WebSocketChat = () => {
 
       {/* 경매 정보 */}
       <div style={{ marginBottom: '30px', padding: '15px', backgroundColor: '#f8f8f8', borderRadius: '8px' }}>
-        {/* <h2>Online Auction : {auctionData.product.name} 판매방</h2> */}
+        {/* 비동기 처리로 데이터를 가져오는데 초기값이 설정안되어있어서 오류가 발생할 수 있음 */}
+      {auctionData.product ? (
+        <h2>Online Auction : {auctionData.product.name} 판매방</h2>
+      ) : (
+        <p>경매 정보 로딩 중...</p>
+      )}
         <div>
           <p><strong>Current Bid:</strong> {highestBid}원</p>
           <p><strong>Highest Bidder:</strong> 최고 입찰자</p>
